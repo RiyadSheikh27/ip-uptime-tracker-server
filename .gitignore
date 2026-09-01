@@ -1,0 +1,84 @@
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.py[cod]
+*.swp
+*.swo
+*.egg-info/
+*.egg
+
+
+
+
+# Virtual environment
+env/
+venv/
+ENV/
+.venv/
+
+
+# .env
+.env
+.env/
+.env*
+*.env
+
+
+
+
+# Ignore all markdown files except README.md
+*.md
+!README.md
+
+
+
+
+# Django stuff
+*.log
+*.pot
+*.pyc
+db.sqlite3
+media/
+staticfiles/
+
+
+
+
+# Django migrations (optional: sometimes you keep them)
+*/migrations/*.py
+*/migrations/*.pyc
+!*/migrations/__init__.py
+
+
+
+
+# Pytest / testing
+.coverage
+htmlcov/
+.tox/
+.nox/
+pytest_cache/
+.pytest_cache/
+.pytest_cache/*
+
+
+
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.vscode
+
+
+
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+
+
