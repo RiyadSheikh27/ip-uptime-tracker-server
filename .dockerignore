@@ -1,0 +1,9 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+celerybeat-schedule
+db.sqlite3
+.env

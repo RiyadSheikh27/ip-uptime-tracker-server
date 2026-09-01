@@ -1,0 +1,61 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  # One-shot: runs migrations + syncs IPs from .env, then exits.
+  # web/worker/beat all wait for this to finish successfully before starting.
+  migrate:
+    build: .
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    command: sh -c "python manage.py migrate && python manage.py sync_ips"
+
+  web:
+    build: .
+    env_file: .env
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    command: python manage.py runserver 0.0.0.0:8000
+    restart: unless-stopped
+
+  worker:
+    build: .
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    command: celery -A config worker -l info
+    restart: unless-stopped
+
+  beat:
+    build: .
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    command: celery -A config beat -l info
+    restart: unless-stopped
+
+volumes:
+  redis_data:

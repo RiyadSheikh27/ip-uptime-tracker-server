@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IP Tracker</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --up: #16a34a;
+      --up-bg: #ecfdf5;
+      --down: #dc2626;
+      --down-bg: #fef2f2;
+      --unknown: #6b7280;
+      --unknown-bg: #f3f4f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px 24px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+    .sub {
+      color: var(--muted);
+      margin-bottom: 18px;
+      font-size: 14px;
+    }
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+    .pill.up { background: var(--up-bg); color: var(--up); border-color: rgba(22,163,74,.15); }
+    .pill.down { background: var(--down-bg); color: var(--down); border-color: rgba(220,38,38,.15); }
+    button {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      padding: 9px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    th, td {
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    th {
+      background: #f9fafb;
+      color: #374151;
+      font-weight: 700;
+    }
+    tbody tr.status-up { background: var(--up-bg); }
+    tbody tr.status-down { background: var(--down-bg); }
+    tbody tr.status-unknown { background: var(--unknown-bg); }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot.up { background: var(--up); }
+    .dot.down { background: var(--down); }
+    .dot.unknown { background: var(--unknown); }
+    .url {
+      font-family: monospace;
+      word-break: break-all;
+    }
+    .muted { color: var(--muted); }
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 40px 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>IP Tracker</h1>
+    <div class="sub">Auto-refresh every 5s &middot; last updated <span id="last-updated">-</span></div>
+
+    <div class="toolbar">
+      <div class="summary" id="summary"></div>
+      <button id="refresh-btn">Refresh now</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>IP / URL</th>
+          <th>Status</th>
+          <th>Duration</th>
+          <th>Last Checked</th>
+          <th>Last Up</th>
+          <th>Last Down</th>
+          <th>Check Interval</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const API_BASE = '/uptime/';
+    const REFRESH_MS = 5000;
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatDate(value) {
+      if (!value) return '<span class="muted">—</span>';
+      return new Date(value).toLocaleString();
+    }
+
+    function statusDot(status) {
+      return `<span class="dot ${status || 'unknown'}"></span>`;
+    }
+
+    async function fetchRows() {
+      const response = await fetch(API_BASE);
+      if (!response.ok) {
+        throw new Error('Could not load IP status');
+      }
+      const data = await response.json();
+      // Handle paginated response from REST framework
+      return Array.isArray(data) ? data : (data.results || []);
+    }
+
+    function render(rows) {
+      const tableBody = document.getElementById('rows');
+      const summary = document.getElementById('summary');
+      document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+
+      if (!rows.length) {
+        tableBody.innerHTML = '<tr><td colspan="7" class="empty">No IPs configured in .env.</td></tr>';
+        summary.innerHTML = '<span class="pill down">0 up</span><span class="pill down">0 down</span>';
+        return;
+      }
+
+      const upCount = rows.filter(row => row.current_status === 'up').length;
+      const downCount = rows.filter(row => row.current_status === 'down').length;
+      summary.innerHTML = `
+        <span class="pill up">${upCount} up</span>
+        <span class="pill down">${downCount} down</span>
+      `;
+
+      tableBody.innerHTML = rows.map(row => `
+        <tr class="status-${row.current_status || 'unknown'}">
+          <td class="url">${escapeHtml(row.url)}</td>
+          <td>
+            <span class="status-badge">${statusDot(row.current_status)} ${escapeHtml((row.current_status || 'unknown').toUpperCase())}</span>
+          </td>
+          <td>${escapeHtml(row.current_status_duration || '—')}</td>
+          <td>${formatDate(row.last_checked_at)}</td>
+          <td>${formatDate(row.last_up_at)}</td>
+          <td>${formatDate(row.last_down_at)}</td>
+          <td>${escapeHtml(row.check_interval_seconds || 0)}s</td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadData() {
+      try {
+        const rows = await fetchRows();
+        render(rows);
+      } catch (error) {
+        document.getElementById('rows').innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(error.message)}</td></tr>`;
+      }
+    }
+
+    document.getElementById('refresh-btn').addEventListener('click', loadData);
+    loadData();
+    setInterval(loadData, REFRESH_MS);
+  </script>
+</body>
+</html>
