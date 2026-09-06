@@ -47,7 +47,7 @@ class UptimeIP(models.Model):
 
     @property
     def current_duration_seconds(self):
-        """How long the IP has been in its current status (up or down)."""
+        """ How long the IP has been in its current status (up or down). """
         if not self.last_status_change_at:
             return None
         return (timezone.now() - self.last_status_change_at).total_seconds()
